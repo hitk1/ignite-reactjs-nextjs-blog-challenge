@@ -86,7 +86,7 @@ export const getStaticProps: GetStaticProps = async () => {
   ],
     {
       fetch: ['post.title', 'post.subtitle', 'post.author'],
-      pageSize: 100
+      pageSize: 1
     }
   )
 
@@ -106,7 +106,6 @@ export const getStaticProps: GetStaticProps = async () => {
         subtitle: RichText.asText(post.data.subtitle),
         title: RichText.asText(post.data.title),
       }
-
     } as Post
   })
 
