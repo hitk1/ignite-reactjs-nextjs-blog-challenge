@@ -1,5 +1,6 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head'
+import Link from 'next/link'
 import Prismic from '@prismicio/client'
 import { RichText } from 'prismic-dom';
 import { FiCalendar, FiUser } from 'react-icons/fi'
@@ -7,6 +8,7 @@ import { FiCalendar, FiUser } from 'react-icons/fi'
 import { getPrismicClient } from '../services/prismic';
 import commonStyles from '../styles/common.module.scss';
 import styles from './home.module.scss';
+import { useState } from 'react';
 
 interface Post {
   uid?: string;
@@ -29,6 +31,42 @@ interface HomeProps {
 
 export default function Home({ postsPagination: { next_page, results } }: HomeProps) {
 
+  const [dataPost, setDataPost] = useState(results)
+  const [nextUrl, setNextUrl] = useState(next_page)
+
+  const handleLoadMoreData = async () => {
+    const response = await fetch(nextUrl)
+
+    const {
+      next_page: secondPaginationNextPage,
+      results: nextResults
+    } = await response.json()
+
+    setDataPost(oldValues => [
+      ...oldValues,
+      ...nextResults.map(post => {
+        return {
+          first_publication_date: new Date(post.data.last_publication_date).toLocaleDateString(
+            'pt-BR',
+            {
+              day: '2-digit',
+              month: 'long',
+              year: 'numeric'
+            }
+          ),
+          uid: post.uid,
+          data: {
+            author: RichText.asText(post.data.author),
+            subtitle: RichText.asText(post.data.subtitle),
+            title: RichText.asText(post.data.title),
+          }
+        } as Post
+      })
+    ])
+
+    setNextUrl(secondPaginationNextPage)
+  }
+
   return (
     <>
       <Head>
@@ -36,39 +74,44 @@ export default function Home({ postsPagination: { next_page, results } }: HomePr
       </Head>
       <div className={styles.container}>
         {
-          results.map(item => (
-            <div
-              key={item.uid}
-              className={styles.postWrapper}
+          dataPost.map((item, index) => (
+            <Link
+              key={`${index}-${item.uid}`}
+              href={`/post/${item.uid}`}
+              prefetch
             >
-              <strong className={styles.title}>{item.data.title}</strong>
-              <p className={styles.subtitle}>{item.data.subtitle}</p>
+              <a>
+                <div className={styles.postWrapper}>
+                  <strong className={styles.title}>{item.data.title}</strong>
+                  <p className={styles.subtitle}>{item.data.subtitle}</p>
 
-              <div className={styles.contentWrapper}>
-                <div>
-                  <FiCalendar
-                    color="#bbbbbb"
-                    size={22}
-                  />
-                  <time>{item.first_publication_date}</time>
+                  <div className={styles.contentWrapper}>
+                    <div>
+                      <FiCalendar
+                        color="#bbbbbb"
+                        size={22}
+                      />
+                      <time>{item.first_publication_date}</time>
+                    </div>
+                    <div>
+                      <FiUser
+                        color="#bbbbbb"
+                        size={22}
+                      />
+                      <p>{item.data.author}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <FiUser
-                    color="#bbbbbb"
-                    size={22}
-                  />
-                  <p>{item.data.author}</p>
-                </div>
-              </div>
-            </div>
+              </a>
+            </Link>
           ))
         }
         {
-          next_page
+          nextUrl
           && (
             <button
               type="button"
-              onClick={() => alert("test")}
+              onClick={() => handleLoadMoreData()}
             >
               Carregar mais posts
             </button>
@@ -82,7 +125,7 @@ export default function Home({ postsPagination: { next_page, results } }: HomePr
 export const getStaticProps: GetStaticProps = async () => {
   const prismic = getPrismicClient();
   const postsResponse = await prismic.query([
-    Prismic.predicates.at('document.type', 'posts')
+    Prismic.predicates.at('document.type', 'post')
   ],
     {
       fetch: ['post.title', 'post.subtitle', 'post.author'],

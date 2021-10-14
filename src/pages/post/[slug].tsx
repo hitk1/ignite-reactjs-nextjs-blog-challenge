@@ -3,12 +3,14 @@ import Head from 'next/head'
 import { RichText } from 'prismic-dom';
 import Prismic from '@prismicio/client'
 import { FiCalendar, FiUser, FiClock } from 'react-icons/fi'
+import format from 'date-fns/format'
 
 import { getPrismicClient } from '../../services/prismic';
 
 import commonStyles from '../../styles/common.module.scss';
 import styles from './post.module.scss';
 import { useRouter } from 'next/router';
+import { ptBR } from 'date-fns/locale';
 
 export interface Post {
   first_publication_date: string | null;
@@ -34,71 +36,76 @@ interface PostProps {
 export default function Post({ post }: PostProps) {
   const router = useRouter()
 
-  router.isFallback && (
-    <div>Carregando...</div>
-  )
+  const timeRead = post.data.content.reduce((prev, curr) => {
+    const headingTotal = curr.heading.split(' ').length
+    const bodyText = RichText.asText(curr.body).split(' ').length
+
+    return prev += headingTotal + bodyText
+  }, 0)
 
   return (
-    <>
-      <Head>
-        <title>Post | {post.data.title}</title>
-      </Head>
-      <header className={styles.imgHeader}>
-        <img src={post.data.banner.url} alt="Image alt" />
-      </header>
-      <main className={styles.container}>
-        <section>
-          <h2 className={styles.title}>{post.data.title}</h2>
-          <div className={styles.metadataInfo}>
-            <div>
-              <FiCalendar
-                color="#BBBBBB"
-                size={22} />
-              <time>{post.first_publication_date}</time>
-            </div>
-            <div>
-              <FiUser
-                color="#BBBBBB"
-                size={22} />
-              <p>{post.data.author}</p>
-            </div>
-            <div>
-              <FiClock
-                color="#BBBBBB"
-                size={22} />
-              <p>5 min</p>
-            </div>
-          </div>
-        </section>
-        <article>
-          {post.data.content.map((content, index) => (
-            <>
-              <div
-                key={index}
-                className={styles.contentTitle}
-                dangerouslySetInnerHTML={{ __html: content.heading }}
-              />
-              {content.body.map(item => (
-                <div
-                  className={styles.contentBody}
-                  dangerouslySetInnerHTML={{ __html: item.text }}
-                />
+    router.isFallback
+      ? (
+        <div>Carregando...</div>
+      )
+      :
+      (
+        <>
+          <Head>
+            <title>Post | {post.data.title}</title>
+          </Head>
+          <header className={styles.imgHeader}>
+            <img src={post.data.banner.url} alt="Image alt" />
+          </header>
+          <main className={styles.container}>
+            <section>
+              <h2 className={styles.title}>{post.data.title}</h2>
+              <div className={styles.metadataInfo}>
+                <div>
+                  <FiCalendar
+                    color="#BBBBBB"
+                    size={22} />
+                  <time>{format(new Date(post.first_publication_date), "dd MMM yyyy", { locale: ptBR })}</time>
+                </div>
+                <div>
+                  <FiUser
+                    color="#BBBBBB"
+                    size={22} />
+                  <p>{post.data.author}</p>
+                </div>
+                <div>
+                  <FiClock
+                    color="#BBBBBB"
+                    size={22} />
+                  <p>{Math.ceil(timeRead / 200)} min</p>
+                </div>
+              </div>
+            </section>
+            <article>
+              {post.data.content.map((content, index) => (
+                <div key={content.heading}>
+                  <h1>{content.heading}</h1>
+                  <div
+                    className={styles.contentBody}
+                    dangerouslySetInnerHTML={{ __html: RichText.asHtml(content.body) }}
+                  />
+                </div>
               ))}
-            </>
-          ))}
-        </article>
-      </main>
-    </>
+            </article>
+          </main>
+        </>
+      )
   )
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const prismic = getPrismicClient();
   const posts = await prismic.query([
-    Prismic.predicates.at('document.type', 'posts')
+    Prismic.predicates.at('document.type', 'post')
   ],
     {
-      fetch: ['post.title', 'post.author', 'post.banner', 'post.corpo_do_post'],
+      fetch: ['post.title', 'post.author', 'post.banner', 'post.content'],
+      pageSize: 2
     }
   )
 
@@ -113,28 +120,21 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   const { slug } = params
   const prismic = getPrismicClient()
-  const response = await prismic.getByUID('posts', String(slug), {})
+  const response = await prismic.getByUID('post', String(slug), {})
+
+  console.log(response.data.author)
 
   const post = {
-    first_publication_date: new Date(response.first_publication_date).toLocaleDateString(
-      'pt-BR',
-      {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric'
-      }
-    ),
+    first_publication_date: response.first_publication_date,
     data: {
-      title: RichText.asText(response.data.title),
+      title: response.data.title[0].text,
       banner: {
         url: response.data.banner.url
       },
-      author: RichText.asText(response.data.author),
-      content: response.data.corpo_do_post.map(contentBody => ({
-        heading: RichText.asHtml(contentBody.heading),
-        body: contentBody.body.map(item => ({
-          text: item.text
-        }))
+      author: response.data.author[0].text,
+      content: response.data.content.map(contentBody => ({
+        heading: contentBody.heading,
+        body: contentBody.body
       }))
     }
   }

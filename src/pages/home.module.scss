@@ -15,6 +15,12 @@
         padding: 1rem 1rem;
         text-align: start;
     }
+
+    a + a {
+        div.postWrapper {
+            margin-top: 2rem;
+        }
+    }
 }
 
 .postWrapper {
@@ -58,9 +64,5 @@
                 }
             }
         }
-    }
-
-    & + div {
-        margin-top: 2rem;
     }
 }
