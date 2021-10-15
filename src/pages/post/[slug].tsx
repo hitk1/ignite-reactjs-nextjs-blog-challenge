@@ -13,13 +13,15 @@ import { useRouter } from 'next/router';
 import { ptBR } from 'date-fns/locale';
 
 export interface Post {
+  uid: string
   first_publication_date: string | null;
   data: {
     title: string;
+    author: string;
+    subtitle: string;
     banner: {
       url: string;
     };
-    author: string;
     content: {
       heading: string;
       body: {
@@ -125,13 +127,15 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   console.log(response.data.author)
 
   const post = {
+    uid: response.uid,
     first_publication_date: response.first_publication_date,
     data: {
-      title: response.data.title[0].text,
+      title: response.data.title,
+      subtitle: response.data.subtitle,
+      author: response.data.author,
       banner: {
         url: response.data.banner.url
       },
-      author: response.data.author[0].text,
       content: response.data.content.map(contentBody => ({
         heading: contentBody.heading,
         body: contentBody.body
